@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Plot</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .graph-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        canvas {
+            flex: 1;
+            max-width: 100%;
+            height: 400px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .dropdown-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .reset-button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .reset-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #ff6347;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .reset-button:hover {
+            background-color: #ff4500;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Photocell and Master Active Time Graphs</h1>
+    <div class="dropdown-container">
+        <label for="logFilesDropdown">Select Log File:</label>
+        <select id="logFilesDropdown">
+            <option value="">Select a log file</option>
+        </select>
+    </div>
+
+    <div class="graph-container">
+        <canvas id="photocellGraph"></canvas>
+        <canvas id="masterGraph"></canvas>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        let photocellChart = null;
+        let masterChart = null;
+        let realTimeDataActive = true;
+
+        socket.on('connect', () => {
+            socket.emit('getLogFiles');
+        });
+
+        socket.on('logFiles', (logFiles) => {
+            const dropdown = document.getElementById('logFilesDropdown');
+            logFiles.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file;
+                option.textContent = file;
+                dropdown.appendChild(option);
+            });
+        });
+
+        document.getElementById('logFilesDropdown').addEventListener('change', (event) => {
+            const selectedFile = event.target.value;
+            if (selectedFile) {
+                realTimeDataActive = false;
+                socket.emit('getLogFileData', selectedFile);
+                resetCharts(true); // Reset for log file data
+            } else {
+                realTimeDataActive = true;
+                socket.emit('getRealTimeData');
+                resetCharts(false); // Reset for real-time data
+            }
+        });
+
+        socket.on('updateGraphsFromFile', (data) => {
+            updateGraphs(data);
+        });
+
+        socket.on('updateGraphs', (data) => {
+            if (realTimeDataActive) {
+                updateGraphs(data);
+            }
+        });
+
+        function updateGraphs(data) {
+            if (!photocellChart) {
+                const photocellCtx = document.getElementById('photocellGraph').getContext('2d');
+                const photocellData = data.photocellGraph.data[0];
+                const photocellValues = photocellData.y.map(item => item.photocell_value);
+                const ips = photocellData.y.map(item => item.ip);
+
+                const colors = ips.map(ip => {
+                    const hash = Array.from(ip).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                    const r = (hash % 256);
+                    const g = (hash + 100) % 256;
+                    const b = (hash + 200) % 256;
+                    return `rgb(${r},${g},${b})`;
+                });
+
+                const borderColors = [];
+                for (let i = 0; i < photocellValues.length - 1; i++) {
+                    borderColors.push(colors[i]);
+                }
+
+                photocellChart = new Chart(photocellCtx, {
+                    type: 'line',
+                    data: {
+                        labels: photocellData.x,
+                        datasets: [{
+                            label: photocellData.label || 'Photocell Data',
+                            data: photocellValues,
+                            borderColor: borderColors,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                            borderWidth: 2,
+                            lineTension: 0.4
+                        }]
+                    },
+                    options: data.photocellGraph.options
+                });
+            } else {
+                const photocellData = data.photocellGraph.data[0];
+                const photocellValues = photocellData.y.map(item => item.photocell_value);
+                const ips = photocellData.y.map(item => item.ip);
+                photocellChart.data.labels.push(photocellData.x[photocellData.x.length - 1]);
+                photocellChart.data.datasets[0].data.push(photocellValues[photocellValues.length - 1]);
+
+                const lastIp = ips[photocellValues.length - 1];
+                const hash = Array.from(lastIp).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const r = (hash % 256);
+                const g = (hash + 100) % 256;
+                const b = (hash + 200) % 256;
+                const newColor = `rgb(${r},${g},${b})`;
+                photocellChart.data.datasets[0].borderColor.push(newColor);
+                photocellChart.update();
+            }
+
+            if (!masterChart) {
+                const masterCtx = document.getElementById('masterGraph').getContext('2d');
+                const masterLabels = data.masterGraph.data.labels;
+
+                // Generate distinct random colors for each bar
+                const masterColors = masterLabels.map(() => {
+                    return `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.6)`;
+                });
+
+                masterChart = new Chart(masterCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: masterLabels,
+                        datasets: [{
+                            label: 'Master Active Time',
+                            data: Object.values(data.masterGraph.data.datasets[0].data),
+                            backgroundColor: masterColors,
+                            borderColor: masterColors.map(color => color.replace('0.6', '1')),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: data.masterGraph.options
+                });
+            } else {
+                const masterLabels = data.masterGraph.data.labels;
+                masterChart.data.labels = masterLabels;
+                masterChart.data.datasets[0].data = Object.values(data.masterGraph.data.datasets[0].data);
+                masterChart.update();
+            }
+        }
+
+        socket.on('resetCharts', () => {
+            console.log('Resetting charts on frontend');
+            reInitializeChart();
+        });
+
+        function reInitializeChart() {
+            if (photocellChart) {
+                // Clear photocell chart data
+                photocellChart.data.labels = [];
+                photocellChart.data.datasets[0].data = [];
+                photocellChart.update();
+            }
+
+            if (masterChart) {
+                // Clear master chart data
+                masterChart.data.labels = [];
+                masterChart.data.datasets[0].data = [];
+                masterChart.update();
+            }
+        }
+    
+
+        // Function to reset the charts
+        function resetCharts(isLogFile) {
+            if (photocellChart) {
+                photocellChart.destroy(); // Destroy the old chart instance
+                photocellChart = null; // Reset the reference
+            }
+
+            if (masterChart) {
+                masterChart.destroy(); // Destroy the old chart instance
+                masterChart = null; // Reset the reference
+            }
+
+            // Re-initialize charts based on the data type (log or real-time)
+            if (isLogFile) {
+                photocellChart = null;
+                masterChart = null;
+            }
+        }
+    </script>
+</body>
+
+</html>
