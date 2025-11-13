@@ -3,6 +3,8 @@
 ## Objective
 This project builds upon Assignment 4 and integrates multiple components for light intensity measurement, role determination, and real-time visualization. It involves the communication of three ESP8266 devices, a Raspberry Pi for data processing and visualization, and a Node.js web interface to monitor data.
 
+---
+
 ### **ESP8266 Device Capabilities:**
 
 - **Wi-Fi and UDP Communication:**
@@ -24,6 +26,8 @@ This project builds upon Assignment 4 and integrates multiple components for lig
 - **UDP Packet Handling:**
   - The ESP8266 devices check for incoming UDP packets, update their role based on received data, and adjust the LEDs accordingly.
 
+---
+
 ### **Raspberry Pi Visualization and Control:**
 
 - **Photocell Data Visualization:**
@@ -37,6 +41,8 @@ This project builds upon Assignment 4 and integrates multiple components for lig
 
 - **Static Visualizations:**
   - In addition to the real-time LED Matrix display, the Raspberry Pi can serve static visualizations through a Node-RED web server, which displays data in graphical formats like charts.
+
+---
 
 ### **System Demonstration and Logging:**
 
@@ -54,6 +60,14 @@ This project builds upon Assignment 4 and integrates multiple components for lig
 - **Real-Time Update:**
   - The system updates the LED matrix in real time as the light readings change, providing a clear visual representation of the sensor data over time.
 
+---
+
+### **Schematics:**
+
+![](images/schematic.png)
+
+---
+
 ### **Node.js Integration:**
 
 - **Real-Time Data Sync:**
@@ -61,3 +75,20 @@ This project builds upon Assignment 4 and integrates multiple components for lig
 
 - **Web Interface:**
   - A web-based interface displays live updates of the photocell data and the active time of the "Master" device in the network. The frontend is built with HTML, and real-time graphs are generated using Chart.js.
+
+---
+
+### **Code Flowchart:**
+
+**RaspberryPi:**
+
+![](images/raspberrypi_flowchart.png)
+
+**ESP8266:**
+
+![](images/esp8266_flowchart.png)
+
+---
+
+### Results on :**
+![](images/observation.png)
